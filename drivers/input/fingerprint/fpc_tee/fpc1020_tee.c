@@ -1098,33 +1098,43 @@ static int fpc1020_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
         fpc1020->input_handler.filter = input_filter;
-	fpc1020->input_handler.connect = input_connect;
-	fpc1020->input_handler.disconnect = input_disconnect;
-	fpc1020->input_handler.name = FPC1020_NAME;
-	fpc1020->input_handler.id_table = ids;
-	rc = input_register_handler(&fpc1020->input_handler);
-	if (rc) {
-		dev_err(dev, "failed to register key handler\n");
-		goto exit;
-	}
+        fpc1020->input_handler.connect = input_connect;
+        fpc1020->input_handler.disconnect = input_disconnect;
+        fpc1020->input_handler.name = FPC1020_NAME;
+        fpc1020->input_handler.id_table = ids;
+        rc = input_register_handler(&fpc1020->input_handler);
+        if (rc) {
+                dev_err(dev, "failed to register key handler\n");
+                goto exit;
+        }
 
-	rc = sysfs_create_group(&dev->kobj, &attribute_group);
-	if (rc) {
-		dev_err(dev, "fpc could not create sysfs\n");
-		goto exit;
-	}
+        rc = sysfs_create_group(&dev->kobj, &attribute_group);
+        if (rc) {
+                dev_err(dev, "fpc could not create sysfs\n");
+                goto exit;
+        }
 
-	rc = reset_gpio_res(fpc1020);
-	if (rc) {
-		dev_err(dev, "fpc %s: could not initialize GPIOs No.!\n",
-			__func__);
-		goto exit;
-	}
+        rc = reset_gpio_res(fpc1020);
+        if (rc) {
+                dev_err(dev, "fpc %s: could not initialize GPIOs No.!\n",
+                        __func__);
+                goto exit;
+        }
 
-	if (of_property_read_bool(dev->of_node, "fpc,enable-on-boot")) {
-		dev_info(dev, "Enabling hardware\n");
-		(void)device_prepare(fpc1020, true);
-	}
+        if (of_property_read_bool(dev->of_node, "fpc,enable-on-boot")) {
+                dev_info(dev, "Enabling hardware\n");
+                (void)device_prepare(fpc1020, true);
+        }
+
+exit:
+	if (fpc1020->irq)
+		free_irq(fpc1020->irq, fpc1020);
+	if (fpc1020->ttw_wl)
+		wakeup_source_unregister(fpc1020->ttw_wl);
+	input_unregister_handler(&fpc1020->input_handler);
+	sysfs_remove_group(&dev->kobj, &attribute_group);
+	kfree(fpc1020);
+	return rc;
 
 #if IS_ENABLED(CONFIG_MI_DRM_OPT)
 	fpc1020->fb_black = false;
